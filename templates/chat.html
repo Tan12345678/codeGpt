@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Local CodeGPT (FastAPI)</title>
+  <!-- ✅ Prism.js CSS for syntax highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #f9f9f9; }
+    #chat-box { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: #fff; }
+    .user { color: blue; margin: 5px 0; }
+    .bot { color: green; margin: 5px 0; }
+    pre { background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    .copy-btn { margin-top: 5px; padding: 3px 6px; font-size: 12px; cursor: pointer; border: 1px solid #888; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h2>💻 Local CodeGPT (FastAPI)</h2>
+  <div id="chat-box"></div>
+  <div class="controls">
+    <input type="text" id="user-input" placeholder="Type code question..." style="width:80%;">
+    <button onclick="sendMessage()">Send</button>
+    <button onclick="resetChat()">Reset Memory</button>
+  </div>
+
+  <!-- ✅ Prism.js JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+
+  <script>
+    async function sendMessage() {
+      let input = document.getElementById("user-input");
+      let message = input.value;
+      if (!message) return;
+
+      let chatBox = document.getElementById("chat-box");
+      chatBox.innerHTML += "<div class='user'><b>You:</b> " + message + "</div>";
+
+      let response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+      let data = await response.json();
+
+      // ✅ Detect code blocks (```lang ... ```) and format them
+      let formattedReply = data.reply.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+        lang = lang || "plaintext"; 
+        code = code.replace(/</g, "&lt;").replace(/>/g, "&gt;"); // escape HTML
+        return `
+          <pre><code class="language-${lang}">${code}</code></pre>
+          <button class="copy-btn" onclick="copyCode(\`${code.replace(/`/g, "\\`")}\`)">📋 Copy</button>
+        `;
+      });
+
+      chatBox.innerHTML += "<div class='bot'><b>AI:</b> " + formattedReply + "</div>";
+
+      // ✅ Trigger Prism.js highlight
+      Prism.highlightAll();
+
+      chatBox.scrollTop = chatBox.scrollHeight;
+      input.value = "";
+    }
+
+    async function resetChat() {
+      await fetch("/reset", { method: "POST" });
+      document.getElementById("chat-box").innerHTML = "";
+    }
+
+    function copyCode(code) {
+      navigator.clipboard.writeText(code).then(() => {
+        alert("✅ Code copied!");
+      });
+    }
+  </script>
+</body>
+</html>
