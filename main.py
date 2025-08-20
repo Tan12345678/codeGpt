@@ -6,8 +6,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
 # ====== CONFIG ======
-# Set your key here or via env var OPENAI_API_KEY
-openai.api_key = os.getenv("OPENAI_API_KEY", "YOUR_COMPANY_API_KEY")
+openai.api_key = os.getenv("OPENAI_API_KEY", "YOUR_COMPANY_API_KEY")  # <-- set your key or env var
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 SYSTEM_PROMPT = {
@@ -23,11 +22,10 @@ SYSTEM_PROMPT = {
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # same-origin by default; keep * for safety during debug
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 templates = Jinja2Templates(directory="templates")
 
 # Single conversation memory
@@ -51,7 +49,6 @@ async def chat(request: Request):
     try:
         data = await request.json()
     except Exception as e:
-        print("[/chat] JSON parse error:", e)
         return JSONResponse({"ok": False, "reply": "", "error": f"Bad JSON: {e}"}, status_code=400)
 
     user_text = data.get("message", "")
@@ -63,7 +60,6 @@ async def chat(request: Request):
     conversation_history[:] = _trim(conversation_history)
     messages = [SYSTEM_PROMPT] + conversation_history
 
-    print(f"[/chat] Calling OpenAI model={DEFAULT_MODEL}, tokens≈, last_user_len={len(user_text)}")
     try:
         resp = openai.ChatCompletion.create(
             model=DEFAULT_MODEL,
@@ -74,19 +70,15 @@ async def chat(request: Request):
         reply = resp["choices"][0]["message"]["content"]
         conversation_history.append({"role": "assistant", "content": reply})
         conversation_history[:] = _trim(conversation_history)
-        print("[/chat] Success, reply_len=", len(reply))
         return JSONResponse({"ok": True, "reply": reply, "error": None})
     except Exception as e:
-        # Surface the exact error back to UI so you can see it
         err = f"{type(e).__name__}: {e}"
-        print("[/chat] OpenAI ERROR:", err)
         return JSONResponse({"ok": False, "reply": "", "error": err}, status_code=200)
 
 @app.post("/reset")
 async def reset():
     global conversation_history
     conversation_history = []
-    print("[/reset] Conversation cleared")
     return JSONResponse({"ok": True, "status": "reset"})
 
 @app.get("/health")
