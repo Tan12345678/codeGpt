@@ -211,67 +211,126 @@
     }
 
     // Export conversation as PDF (multi-page) with timestamp
-    async function exportPDF(){
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'pt', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 24;
+// Replace your existing exportPDF() with this function
+async function exportPDF(){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'pt', 'a4');
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 24;
 
-      // Header with timestamp
-      const ts = new Date();
-      const header = `CodeGPT Conversation — ${ts.toLocaleString()}`;
-      pdf.setFont('helvetica', 'bold');
+  // Header with timestamp
+  const ts = new Date();
+  const header = `CodeGPT Conversation — ${ts.toLocaleString()}`;
+
+  // Clone chat element
+  const chatEl = document.getElementById('chat-box');
+  const clone = chatEl.cloneNode(true);
+
+  // Make print-friendly adjustments on clone
+  //  - white background, black text
+  //  - make bubbles white with dark borders/text
+  //  - make code blocks white with monospace and dark text
+  //  - hide copy buttons
+  clone.style.background = '#ffffff';
+  clone.style.color = '#000000';
+  clone.querySelectorAll('*').forEach(node => {
+    // Set a baseline to ensure readability
+    node.style.background = node.style.background || 'transparent';
+    node.style.color = node.style.color || 'inherit';
+  });
+
+  // Style bubble containers and labels
+  clone.querySelectorAll('.bubble, .you, .ai').forEach(b => {
+    b.style.background = '#ffffff';
+    b.style.color = '#000000';
+    b.style.borderColor = '#dddddd';
+    b.style.boxShadow = 'none';
+  });
+  clone.querySelectorAll('.label').forEach(l => {
+    l.style.color = '#333333';
+  });
+
+  // Style pre / code blocks
+  clone.querySelectorAll('pre').forEach(pre => {
+    pre.style.background = '#ffffff';
+    pre.style.color = '#000000';
+    pre.style.border = '1px solid #ddd';
+  });
+  clone.querySelectorAll('code').forEach(code => {
+    code.style.background = 'transparent';
+    code.style.color = '#000000';
+    code.style.fontFamily = 'monospace';
+    code.style.whiteSpace = 'pre-wrap';
+  });
+
+  // Remove/hide interactive controls (copy buttons, etc.)
+  clone.querySelectorAll('.copy-btn, button.copy-btn').forEach(btn => {
+    btn.style.display = 'none';
+  });
+
+  // Normalize font colors within any inner markup produced by marked() or Prism
+  clone.querySelectorAll('span, a, strong, em, h1, h2, h3, p, li').forEach(n => {
+    n.style.color = '#000000';
+  });
+
+  // Put clone in a temporary offscreen container sized to PDF width
+  const temp = document.createElement('div');
+  temp.style.position = 'fixed';
+  temp.style.left = '-10000px';
+  temp.style.top = '0';
+  temp.style.width = (pageWidth - margin*2) + 'px';
+  // ensure white background
+  temp.style.background = '#ffffff';
+  temp.appendChild(clone);
+  document.body.appendChild(temp);
+
+  try {
+    const canvas = await html2canvas(clone, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      windowWidth: clone.scrollWidth,
+      windowHeight: clone.scrollHeight
+    });
+
+    // Remove the temp element quickly
+    document.body.removeChild(temp);
+
+    const imgData = canvas.toDataURL('image/png');
+    const imgWidth = pageWidth - margin*2;
+    const imgHeight = canvas.height * imgWidth / canvas.width;
+
+    let y = margin + 18; // leave space for header
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.text(header, margin, margin);
+
+    pdf.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight);
+    let heightLeft = imgHeight - (pageHeight - y - margin);
+
+    while (heightLeft > 0) {
+      pdf.addPage();
+      // header on each page
       pdf.setFontSize(12);
       pdf.text(header, margin, margin);
-
-      // Render chat as image(s)
-      const chatEl = document.getElementById('chat-box');
-      // Clone to ensure proper background
-      const clone = chatEl.cloneNode(true);
-      clone.style.background = '#ffffff';    // white background for PDF
-      clone.style.color = '#000000';
-
-      // Wrap clone in a temp container
-      const temp = document.createElement('div');
-      temp.style.position = 'fixed';
-      temp.style.left = '-10000px';
-      temp.style.top = '0';
-      temp.style.width = (pageWidth - margin*2) + 'px'; // constrain width to page
-      temp.appendChild(clone);
-      document.body.appendChild(temp);
-
-      // Use html2canvas on the temp container
-      const canvas = await html2canvas(clone, {
-        scale: 2,          // higher quality
-        backgroundColor: '#ffffff',
-        useCORS: true
-      });
-      document.body.removeChild(temp);
-
-      const imgData = canvas.toDataURL('image/png');
-      const imgWidth = pageWidth - margin*2;
-      const imgHeight = canvas.height * imgWidth / canvas.width;
-
-      let y = margin + 18; // leave space for header
-      let heightLeft = imgHeight;
-
-      pdf.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - y - margin);
-
-      while (heightLeft > 0) {
-        pdf.addPage();
-        y = margin;
-        pdf.text(header, margin, y); // header on each page
-        y += 18;
-        const position = imgHeight - heightLeft;
-        pdf.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight);
-        heightLeft -= (pageHeight - y - margin);
-      }
-
-      const filename = `CodeGPT_Conversation_${nowStamp()}.pdf`;
-      pdf.save(filename);
+      const nextY = margin + 18;
+      pdf.addImage(imgData, 'PNG', margin, nextY, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= (pageHeight - nextY - margin);
     }
+
+    const filename = `CodeGPT_Conversation_${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')}_${String(ts.getHours()).padStart(2,'0')}-${String(ts.getMinutes()).padStart(2,'0')}-${String(ts.getSeconds()).padStart(2,'0')}.pdf`;
+    pdf.save(filename);
+  } catch (err) {
+    // cleanup on error
+    if (document.body.contains(temp)) document.body.removeChild(temp);
+    console.error("Export PDF failed:", err);
+    alert("Failed to export PDF — check console for details.");
+  }
+}
+
 
     // Enter to send, Shift+Enter newline
     input.addEventListener('keydown', (e)=>{
