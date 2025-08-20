@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>CodeGPT — Local</title>
 
-  <!-- Prism for syntax highlighting -->
+  <!-- Prism for syntax highlighting (optional) -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 
   <style>
@@ -28,6 +28,7 @@
     .send{background:#163a22;border-color:#1f4d2c;color:#c6f6d5}
     .max.active{border-color:var(--accent)}
     .wrap.max textarea{height:60vh}
+    .error{color:#ffb4b4}
   </style>
 </head>
 <body>
@@ -47,7 +48,7 @@
     </div>
   </div>
 
-  <!-- Prism -->
+  <!-- Prism (optional) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
@@ -102,7 +103,7 @@
 
             wrap.appendChild(pre);
             wrap.appendChild(btn);
-            Prism.highlightAllUnder(pre);
+            try { Prism.highlightAllUnder(pre); } catch(e) { /* ignore */ }
           }
           box.appendChild(wrap);
           box.scrollTop = box.scrollHeight;
@@ -139,15 +140,38 @@
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ message: msg })
         });
-        const data = await res.json();
+
+        // If server sends HTML error page, guard JSON parse
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          console.error("Failed to parse JSON from /chat:", e);
+          addBubble('ai', '⚠️ Server did not return JSON. Check backend logs.', false);
+          return;
+        }
+
+        console.log("Chat response:", data); // 🔍 debug in console
+
+        if (!data.ok) {
+          const err = data.error || 'Unknown error';
+          addBubble('ai', '⚠️ ' + err, false);
+          return;
+        }
+
         addBubble('ai', data.reply || '(no reply)', true);
       }catch(err){
+        console.error("Fetch /chat failed:", err);
         addBubble('ai', '⚠️ Error contacting server: ' + err, false);
       }
     }
 
     async function resetChat(){
-      await fetch('/reset', { method:'POST' });
+      try{
+        const res = await fetch('/reset', { method:'POST' });
+        const data = await res.json().catch(()=>({}));
+        console.log("Reset:", data);
+      }catch(e){ console.error("Reset error:", e); }
       box.innerHTML = '';
     }
 
