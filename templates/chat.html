@@ -4,238 +4,168 @@
   <meta charset="utf-8" />
   <title>CodeGPT — Local</title>
 
-  <!-- Prism for highlighting (optional) -->
+  <!-- Prism for syntax highlighting -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 
   <style>
-    :root { --bg:#0f1115; --panel:#151821; --muted:#9aa0aa; --accent:#6ea8fe; --text:#e6e6e6; --border:#2a2f3a; --panel2:#1b2030; }
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,Arial;background:var(--bg);color:var(--text);height:100vh;display:grid;grid-template-columns:260px 1fr}
-    /* Sidebar */
-    .sidebar{background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
-    .side-head{padding:14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
-    .brand{font-weight:700}
-    .new-btn{background:var(--panel2);border:1px solid var(--border);padding:8px 10px;border-radius:8px;cursor:pointer}
-    .list{padding:8px;overflow:auto;flex:1}
-    .chat-item{padding:10px;margin:8px;border-radius:10px;background:#0f1420;border:1px solid var(--border);cursor:pointer}
-    .chat-item.active{border-color:var(--accent)}
-    /* Main */
-    .main{display:grid;grid-template-rows:1fr auto;height:100vh}
-    #chat-box{padding:20px;overflow:auto}
-    .bubble{max-width:900px;padding:12px;border-radius:12px;margin:10px 0;border:1px solid var(--border);white-space:pre-wrap}
+    :root { --bg:#0f1115; --panel:#151821; --panel2:#1b2030; --text:#e6e6e6; --muted:#9aa0aa; --border:#2a2f3a; --accent:#6ea8fe; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,Arial;height:100vh;display:grid;grid-template-rows:1fr auto}
+    /* Chat area */
+    #chat-box{padding:22px;overflow:auto}
+    .bubble{max-width:1000px;margin:10px auto;border:1px solid var(--border);border-radius:12px;background:#0b0f18;padding:12px;white-space:pre-wrap}
     .you{background:#0b1220}
     .ai{background:#08101a}
-    pre{background:#0b0f18;padding:12px;border-radius:8px;overflow:auto;border:1px solid var(--border)}
-    .copy-btn{display:inline-block;margin-top:6px;padding:6px 8px;border-radius:6px;background:#0b0f18;border:1px solid var(--border);cursor:pointer}
+    .label{opacity:.7;margin-bottom:6px;font-size:13px}
+    pre{background:#0b0f18!important;border:1px solid var(--border);border-radius:10px;padding:12px;overflow:auto;margin:8px 0 4px}
+    .copy-btn{display:inline-block;margin:0 0 8px;padding:6px 8px;border:1px solid var(--border);background:#0b0f18;color:var(--text);border-radius:6px;cursor:pointer}
     /* Composer */
-    .composer{padding:12px;border-top:1px solid var(--border);background:var(--panel)}
-    .input-wrap{background:var(--panel2);padding:10px;border-radius:10px;border:1px solid var(--border)}
+    .composer{border-top:1px solid var(--border);background:var(--panel);padding:14px}
+    .wrap{max-width:1000px;margin:0 auto;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px}
     textarea{width:100%;min-height:64px;max-height:60vh;resize:vertical;border:0;background:transparent;color:var(--text);outline:none;font:14px/1.45 monospace;white-space:pre-wrap}
-    .controls{display:flex;justify-content:space-between;margin-top:8px}
-    .left{display:flex;gap:8px}
-    .btn{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+    .controls{display:flex;justify-content:space-between;gap:8px;margin-top:8px}
+    .btn{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);cursor:pointer}
     .send{background:#163a22;border-color:#1f4d2c;color:#c6f6d5}
-    .maximize.active{border-color:var(--accent)}
+    .max.active{border-color:var(--accent)}
+    .wrap.max textarea{height:60vh}
   </style>
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="side-head">
-      <div class="brand">CodeGPT</div>
-      <button class="new-btn" onclick="newChat()">+ New</button>
-    </div>
-    <div class="list" id="chat-list"></div>
-  </aside>
+  <div id="chat-box"></div>
 
-  <main class="main">
-    <div id="chat-box"></div>
-
-    <div class="composer">
-      <div class="input-wrap" id="inputWrap">
-        <textarea id="userInput" placeholder="Ask about code… (Shift+Enter = newline)"></textarea>
-        <div class="controls">
-          <div class="left">
-            <button id="maximizeBtn" class="btn maximize" onclick="toggleMax()">⤢ Max</button>
-            <button class="btn" onclick="clearComposer()">↺ Clear</button>
-          </div>
-          <div>
-            <button class="btn send" onclick="send()">Send ▸</button>
-          </div>
+  <div class="composer">
+    <div id="wrap" class="wrap">
+      <textarea id="userInput" placeholder="Ask about code… (Shift+Enter = newline)"></textarea>
+      <div class="controls">
+        <div>
+          <button id="maxBtn" class="btn max" onclick="toggleMax()">⤢ Maximize</button>
+          <button class="btn" onclick="clearInput()">↺ Clear</button>
+          <button class="btn" onclick="resetChat()">🗑 Reset Chat</button>
         </div>
+        <button class="btn send" onclick="send()">Send ▸</button>
       </div>
     </div>
-  </main>
+  </div>
 
-  <!-- Prism (optional highlighting) -->
+  <!-- Prism -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 
   <script>
-    let currentChat = null;
+    const box = document.getElementById('chat-box');
+    const input = document.getElementById('userInput');
 
-    // UTIL
+    // Helpers
     function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-    function tsToStr(ts){return new Date(ts*1000).toLocaleString()}
-
-    // UI helpers
-    function addBubble(role, content, animate=true){
-      const box = document.getElementById('chat-box');
+    function addBubble(role, content, typewriter=true){
       const wrap = document.createElement('div');
-      wrap.className = 'bubble ' + (role==='user'?'you':'ai');
-      // Label
-      const label = document.createElement('div'); label.style.opacity=0.6; label.style.marginBottom='6px';
-      label.textContent = role==='user'?'You':'AI';
+      wrap.className = 'bubble ' + (role==='user' ? 'you' : 'ai');
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = role === 'user' ? 'You' : 'AI';
       wrap.appendChild(label);
 
-      // parse fenced code blocks
+      // split on fenced blocks
       const regex = /```(\w+)?\n([\s\S]*?)```/g;
-      let lastIndex = 0, m;
-      if(!animate){
-        // instant render (no typewriter)
-        let out = '';
-        while((m = regex.exec(content)) !== null){
-          out += escHtml(content.slice(lastIndex, m.index)).replace(/\n/g,'<br>');
-          const lang = m[1] || '';
-          const code = escHtml(m[2]);
-          out += `<pre><code class="language-${lang}">${code}</code></pre>`;
-          lastIndex = regex.lastIndex;
-        }
-        out += escHtml(content.slice(lastIndex)).replace(/\n/g,'<br>');
-        wrap.innerHTML += out;
-        box.appendChild(wrap);
-        Prism.highlightAllUnder(wrap);
-        box.scrollTop = box.scrollHeight;
-        return;
-      }
-
-      // animated rendering: reveal text and insert code blocks when reached
-      let cursor = 0;
+      let start = 0, m;
       const parts = [];
-      regex.lastIndex = 0;
-      let start = 0;
       while((m = regex.exec(content)) !== null){
         parts.push({type:'text', text: content.slice(start, m.index)});
-        parts.push({type:'code', lang: m[1] || '', code: m[2]});
+        parts.push({type:'code', lang: m[1] || 'plaintext', code: m[2]});
         start = regex.lastIndex;
       }
       parts.push({type:'text', text: content.slice(start)});
 
-      // sequentially type text parts and append code blocks immediately (no typing inside code)
-      (async function runParts(){
+      (async function render(){
         for(const p of parts){
-          if(p.type==='text'){
-            await typeInto(wrap, p.text);
+          if(p.type === 'text'){
+            if(typewriter) await typeInto(wrap, p.text);
+            else {
+              const seg = document.createElement('div');
+              seg.innerHTML = escHtml(p.text).replace(/\n/g,'<br>');
+              wrap.appendChild(seg);
+            }
           } else {
-            // append code block instantly
             const pre = document.createElement('pre');
             const code = document.createElement('code');
-            code.className = 'language-' + (p.lang||'');
-            code.textContent = p.code; // preserve indentation
+            code.className = 'language-' + p.lang;
+            code.textContent = p.code;
             pre.appendChild(code);
-            const copyBtn = document.createElement('button');
-            copyBtn.className='copy-btn';
-            copyBtn.textContent='📋 Copy';
-            copyBtn.onclick = ()=>{navigator.clipboard.writeText(p.code)};
+
+            const btn = document.createElement('button');
+            btn.className = 'copy-btn';
+            btn.textContent = '📋 Copy';
+            btn.onclick = () => navigator.clipboard.writeText(p.code);
+
             wrap.appendChild(pre);
-            wrap.appendChild(copyBtn);
-            Prism.highlightAllUnder(wrap);
+            wrap.appendChild(btn);
+            Prism.highlightAllUnder(pre);
           }
-          // keep scrolled to bottom
           box.appendChild(wrap);
           box.scrollTop = box.scrollHeight;
         }
-        // ensure appended
-        box.appendChild(wrap);
-        box.scrollTop = box.scrollHeight;
       })();
     }
 
     function typeInto(container, text, speed=12){
       return new Promise(resolve=>{
+        const seg = document.createElement('div');
+        container.appendChild(seg);
         let i=0;
-        const span = document.createElement('div');
-        container.appendChild(span);
-        function step(){
-          if(i<text.length){
-            span.innerHTML += escHtml(text.charAt(i)).replace(/\n/g,'<br>');
+        (function step(){
+          if(i < text.length){
+            seg.innerHTML += escHtml(text[i]).replace(/\n/g,'<br>');
             i++;
             container.parentElement.scrollTop = container.parentElement.scrollHeight;
             setTimeout(step, speed);
           } else resolve();
-        }
-        step();
+        })();
       });
     }
 
-    // API calls
-    async function refreshList(){
-      const res = await fetch('/chats'); const data = await res.json();
-      const root = document.getElementById('chat-list'); root.innerHTML='';
-      data.chats.forEach(c=>{
-        const el = document.createElement('div');
-        el.className='chat-item';
-        el.dataset.id = c.id;
-        el.onclick = ()=>loadChat(c.id);
-        el.innerHTML = `<div style="font-weight:600">${escHtml(c.title)}</div><div style="font-size:12px;color:${'#9aa0aa'}">${tsToStr(c.updated)}</div>`;
-        if(c.id===currentChat) el.classList.add('active');
-        root.appendChild(el);
-      });
-    }
-
-    async function newChat(){
-      const res = await fetch('/new_chat',{method:'POST'}); const d=await res.json();
-      currentChat = d.chat_id;
-      await refreshList();
-      document.getElementById('chat-box').innerHTML='';
-      document.getElementById('userInput').value='';
-      document.getElementById('userInput').focus();
-    }
-
-    async function loadChat(id){
-      currentChat = id;
-      const res = await fetch(`/messages?chat_id=${encodeURIComponent(id)}`); const d=await res.json();
-      const box = document.getElementById('chat-box'); box.innerHTML='';
-      for(const m of d.messages) addBubble(m.role, m.content, false);
-      await refreshList();
-    }
-
+    // Actions
     async function send(){
-      const ta = document.getElementById('userInput');
-      const msg = ta.value;
+      const msg = input.value; // keep exact formatting; no trim
       if(!msg) return;
-      addBubble('user', msg, false); ta.value='';
-      // call backend
-      const res = await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:currentChat,message:msg})});
-      const d = await res.json();
-      if(d.chat_id) currentChat = d.chat_id;
-      addBubble('ai', d.reply || '(no reply)', true);
-      await refreshList();
+      addBubble('user', msg, false);
+      input.value = '';
+
+      try{
+        const res = await fetch('/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+        addBubble('ai', data.reply || '(no reply)', true);
+      }catch(err){
+        addBubble('ai', '⚠️ Error contacting server: ' + err, false);
+      }
     }
 
-    async function clearComposer(){ document.getElementById('userInput').value=''; }
-    async function toggleMax(){ const wrap = document.getElementById('inputWrap'); const btn = document.getElementById('maximizeBtn'); wrap.classList.toggle('maximized'); const active = wrap.classList.contains('maximized'); btn.classList.toggle('active', active); btn.textContent = active ? '⤡ Min' : '⤢ Max'; document.getElementById('userInput').focus(); }
-
-    // reset chat messages for current chat
-    async function resetThis(){
-      if(!currentChat) return;
-      await fetch('/reset_chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:currentChat})});
-      document.getElementById('chat-box').innerHTML='';
+    async function resetChat(){
+      await fetch('/reset', { method:'POST' });
+      box.innerHTML = '';
     }
 
-    // keyboard
-    document.getElementById('userInput').addEventListener('keydown', (e)=>{
+    function clearInput(){ input.value=''; }
+    function toggleMax(){
+      const w = document.getElementById('wrap');
+      const b = document.getElementById('maxBtn');
+      w.classList.toggle('max');
+      const on = w.classList.contains('max');
+      b.classList.toggle('active', on);
+      b.textContent = on ? '⤡ Minimize' : '⤢ Maximize';
+      input.focus();
+    }
+
+    // Enter to send, Shift+Enter newline
+    input.addEventListener('keydown', (e)=>{
       if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); }
     });
-
-    // init on load
-    (async ()=>{
-      await refreshList();
-      // create a chat if none
-      if(!document.querySelector('.chat-item')) await newChat();
-      else {
-        const first = document.querySelector('.chat-item'); if(first){ currentChat = first.dataset.id; await loadChat(currentChat); }
-      }
-      document.getElementById('userInput').focus();
-    })();
   </script>
 </body>
 </html>
